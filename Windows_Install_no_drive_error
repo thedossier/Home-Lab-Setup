@@ -1,0 +1,97 @@
+# 🧰 Windows VM – “No Drives Found” During Installation in Proxmox
+
+## 🧩 Problem
+While installing **Windows 10/11** or **Windows Server** inside **Proxmox VE**, the Windows Setup screen displayed:
+
+> “No drives were found. Click Load Driver to provide a mass storage driver for installation.”
+
+Even though the virtual hard disk was properly configured, Windows could not detect it.
+
+---
+
+## ⚙️ Cause
+Proxmox uses **VirtIO drivers** to provide optimized, high-performance virtual hardware. However, Windows installation media **does not include** these drivers by default. As a result, the virtualized storage device is invisible to the Windows installer.
+
+---
+
+## 🪄 Solution
+
+### 1️⃣ Download and upload VirtIO drivers to Proxmox
+From the official Fedora repository:  
+🔗 [Download virtio-win.iso](https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/latest-virtio/)
+
+Upload this ISO to your Proxmox **ISO Storage** (e.g., `local:iso` or `iso-storage`).
+
+---
+
+### 2️⃣ Attach VirtIO ISO to the VM
+In the Proxmox web interface:
+1. Select your Windows VM  
+2. Go to **Hardware → Add → CD/DVD Drive**  
+3. Choose **Use ISO Image** → select `virtio-win.iso`  
+4. Set the **Bus/Device** to `IDE` or `SATA` (not VirtIO for the CD drive)
+
+---
+
+### 3️⃣ Restart the VM
+Reboot (or stop/start) the VM so the installer can see both ISOs:
+- Windows installation ISO  
+- VirtIO driver ISO  
+
+---
+
+### 4️⃣ Load the storage driver in Windows setup
+When prompted to select a driver:
+1. Click **Load Driver → Browse**  
+2. Navigate to the VirtIO CD (usually `D:` or `E:`)  
+3. Open the folder matching your OS version:
+   ```
+   viostor > w10    # for Windows 10 / 11
+   viostor > 2k19   # for Windows Server 2019
+   viostor > 2k22   # for Windows Server 2022
+   ```
+4. Click **OK** → select the driver → continue installation  
+Your virtual disk should now appear.
+
+---
+
+### 5️⃣ Complete setup and install full VirtIO tools
+Once Windows is installed:
+1. Mount the VirtIO ISO again in Proxmox  
+2. Inside Windows, open the CD and run:
+   ```
+   virtio-win-guest-tools.exe
+   ```
+This installs all VirtIO components (storage, network, balloon driver, QEMU guest agent, etc.)
+
+---
+
+## 🧠 Lessons Learned
+- Proxmox’s VirtIO devices offer **enterprise-grade performance**, but require manual drivers for Windows installs.  
+- Always keep a copy of the **latest VirtIO ISO** in your Proxmox ISO library.  
+- Troubleshooting missing storage drivers simulates **real help desk and IT support scenarios** — valuable experience for SOC and IT admin roles.  
+
+---
+
+### ✅ Example VM Hardware Configuration
+| Component | Setting |
+|------------|----------|
+| Disk | `SCSI` using VirtIO SCSI controller |
+| Network | `VirtIO (paravirtualized)` |
+| CD/DVD 1 | Windows installation ISO |
+| CD/DVD 2 | VirtIO drivers ISO |
+| BIOS | `OVMF (UEFI)` or `SeaBIOS` |
+| Display | `Default` |
+| Memory | 4–8 GB |
+| CPU | 2–4 cores |
+
+---
+
+## 🧾 Summary for GitHub
+This issue occurred during the setup of a Windows VM within my Proxmox-based homelab. Windows Setup failed to detect the virtual disk because the VirtIO drivers were not preloaded in the installation ISO. After adding the **virtio-win.iso** as a secondary CD/DVD drive and manually loading the correct driver, Windows successfully recognized the disk and installation continued normally.  
+
+This experience reinforced the importance of understanding virtualization hardware layers and driver dependencies — both critical skills for IT Help Desk and SOC analyst workflows.  
+
+---
+
+**Tags:** `#Proxmox` `#WindowsVM` `#VirtIO` `#Homelab` `#HelpDesk` `#SysAdmin`
